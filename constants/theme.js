@@ -1,0 +1,123 @@
+// Final Theme Configuration - Guaranteed to work
+const COLORS = {
+  primary: '#2563EB',
+  primaryLight: '#3B82F6',
+  primaryDark: '#1D4ED8',
+  secondary: '#10B981',
+  secondaryLight: '#34D399',
+  secondaryDark: '#059669',
+  accent: '#F59E0B',
+  accentLight: '#FBBF24',
+  accentDark: '#D97706',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  info: '#3B82F6',
+  white: '#FFFFFF',
+  black: '#000000',
+  gray50: '#F9FAFB',
+  gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray600: '#4B5563',
+  gray700: '#374151',
+  gray800: '#1F2937',
+  gray900: '#111827',
+  background: '#F8FAFC',
+  
+  card: '#FFFFFF',
+  textPrimary: '#1F2937',
+  textSecondary: '#6B7280',
+  textLight: '#9CA3AF',
+  border: '#E5E7EB',
+  borderLight: '#F3F4F6',
+  borderDark: '#D1D5DB',
+  shadow: 'rgba(0, 0, 0, 0.1)',
+  shadowDark: 'rgba(0, 0, 0, 0.2)',
+};
+
+const SIZES = {
+  width: 375,
+  height: 812,
+  h1: 32,
+  h2: 28,
+  h3: 24,
+  h4: 20,
+  h5: 18,
+  h6: 16,
+  body: 16,
+  bodySmall: 14,
+  caption: 12,
+  small: 10,
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  radius: 8,
+  radiusSmall: 4,
+  radiusLarge: 16,
+  radiusXL: 24,
+  radiusRound: 50,
+  buttonHeight: 48,
+  inputHeight: 48,
+  headerHeight: 60,
+  tabBarHeight: 80,
+  iconXS: 12,
+  iconSM: 16,
+  iconMD: 20,
+  iconLG: 24,
+  iconXL: 32,
+  iconXXL: 48,
+};
+
+const FONTS = {
+  regular: 'System',
+  medium: 'System',
+  bold: 'System',
+  light: 'System',
+};
+
+const SHADOWS = {
+  small: {
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  medium: {
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  large: {
+    shadowColor: COLORS.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+};
+
+const GRADIENTS = {
+  primary: ['#2563EB', '#3B82F6'],
+  secondary: ['#10B981', '#34D399'],
+  accent: ['#F59E0B', '#FBBF24'],
+  success: ['#10B981', '#34D399'],
+  warning: ['#F59E0B', '#FBBF24'],
+  error: ['#EF4444', '#F87171'],
+};
+
+module.exports = {
+  COLORS,
+  SIZES,
+  FONTS,
+  SHADOWS,
+  GRADIENTS
+};

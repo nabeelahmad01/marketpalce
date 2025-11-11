@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View, Text } from 'react-native';
+import { ActivityIndicator, View, Text, StatusBar } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -142,15 +142,22 @@ export default function App() {
 
   const checkUserType = async () => {
     try {
-      const user = await AsyncStorage.getItem('currentUser');
-      if (user) {
-        const userData = JSON.parse(user);
-        setUserType(userData.type);
-      }
+      // Always start with login screen - user can login to access app
+      setUserType(null);
     } catch (error) {
       console.log(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('currentUser');
+      setUserType(null);
+    } catch (error) {
+      console.log('Logout error:', error);
     }
   };
 
@@ -163,8 +170,10 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
         {userType === null ? (
           <>
             <Stack.Screen
@@ -206,7 +215,8 @@ export default function App() {
             <Stack.Screen name="MechanicProfile" component={MechanicProfileScreen} options={{ headerShown: true }} />
           </>
         )}
-      </Stack.Navigator>
-    </NavigationContainer>
+        </Stack.Navigator>
+      </NavigationContainer>
+    </>
   );
 }

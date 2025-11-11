@@ -593,6 +593,198 @@ chatRouter.post('/send', async (req, res) => {
   }
 });
 
+// Enhanced Mechanic Routes for InDrive-like functionality
+mechanicRouter.post('/nearby', async (req, res) => {
+  try {
+    const { latitude, longitude, category, radius = 10 } = req.body;
+    
+    // Find mechanics within radius
+    const mechanics = await User.find({
+      type: 'mechanic',
+      categories: { $in: [category] },
+      kycStatus: 'approved',
+      location: { $exists: true }
+    }).select('-password');
+
+    // Filter by distance and add distance calculation
+    const mechanicsWithDistance = mechanics
+      .map(mechanic => {
+        if (!mechanic.location || !mechanic.location.lat || !mechanic.location.lng) {
+          return null;
+        }
+        
+        const distance = calculateDistance(
+          latitude, longitude,
+          mechanic.location.lat, mechanic.location.lng
+        );
+        
+        if (distance <= radius) {
+          return {
+            ...mechanic.toObject(),
+            distance,
+            estimatedArrival: estimateArrivalTime(distance)
+          };
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.distance - b.distance);
+
+    res.json({ mechanics: mechanicsWithDistance });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Enhanced Service Routes
+serviceRouter.post('/request', async (req, res) => {
+  try {
+    const { mechanicId, category, description, location, requestedPrice, urgency } = req.body;
+    const customerId = req.headers['user-id'];
+
+    const serviceRequest = new ServiceRequest({
+      customerId,
+      mechanicId,
+      category,
+      description,
+      location,
+      requestedPrice,
+      urgency,
+      status: 'pending'
+    });
+
+    await serviceRequest.save();
+    
+    res.json({ 
+      message: 'Request sent successfully',
+      request: serviceRequest 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+serviceRouter.post('/broadcast', async (req, res) => {
+  try {
+    const { mechanicIds, category, description, location, requestedPrice, urgency } = req.body;
+    const customerId = req.headers['user-id'];
+
+    const serviceRequest = new ServiceRequest({
+      customerId,
+      category,
+      description,
+      location,
+      requestedPrice,
+      urgency,
+      status: 'broadcast',
+      targetMechanics: mechanicIds
+    });
+
+    await serviceRequest.save();
+
+    res.json({ 
+      message: 'Requests sent to all mechanics',
+      request: serviceRequest 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+serviceRouter.get('/request/:requestId/offers', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    
+    const request = await ServiceRequest.findById(requestId)
+      .populate('customerId', 'name phone');
+    
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Get offers from the offers array in the request
+    const offers = request.offers.map(offer => ({
+      ...offer.toObject(),
+      mechanic: {
+        _id: offer.mechanicId,
+        name: offer.mechanicName,
+        rating: offer.mechanicRating,
+        reviews: 25, // Default value
+        location: { latitude: 0, longitude: 0 } // You may want to fetch actual location
+      }
+    }));
+
+    res.json({ request, offers });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+serviceRouter.post('/offer/:offerId/accept', async (req, res) => {
+  try {
+    const { offerId } = req.params;
+    const customerId = req.headers['user-id'];
+    
+    // Find the request containing this offer
+    const request = await ServiceRequest.findOne({ 'offers._id': offerId });
+    
+    if (!request || request.customerId.toString() !== customerId) {
+      return res.status(404).json({ message: 'Offer not found or unauthorized' });
+    }
+
+    const offer = request.offers.id(offerId);
+    if (!offer) {
+      return res.status(404).json({ message: 'Offer not found' });
+    }
+
+    // Update offer status
+    offer.status = 'accepted';
+    request.status = 'accepted';
+    request.acceptedMechanic = offer.mechanicId;
+
+    // Reject other offers
+    request.offers.forEach(o => {
+      if (o._id.toString() !== offerId.toString()) {
+        o.status = 'rejected';
+      }
+    });
+
+    await request.save();
+
+    res.json({ 
+      message: 'Offer accepted successfully',
+      offer 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Helper functions
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function estimateArrivalTime(distance) {
+  const hours = distance / 25; // 25 km/h average speed
+  const minutes = Math.round(hours * 60);
+  
+  if (minutes < 60) {
+    return `${minutes} min`;
+  }
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hrs}h ${mins}m`;
+}
+
 // Register Routes
 app.use('/api/auth', authRouter);
 app.use('/api/services', serviceRouter);
@@ -608,6 +800,36 @@ app.use('/api/users', userRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => res.json({ status: 'Server running ✓' }));
+
+// Test endpoint for debugging
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'Backend is working!', 
+    timestamp: new Date().toISOString(),
+    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+  });
+});
+
+// Create test user endpoint (for development only)
+app.post('/api/create-test-user', async (req, res) => {
+  try {
+    const testUser = new User({
+      name: 'Test User',
+      phone: '03001234567',
+      password: '123456',
+      type: 'customer'
+    });
+    
+    await testUser.save();
+    res.json({ message: 'Test user created', user: { phone: testUser.phone, type: testUser.type } });
+  } catch (error) {
+    if (error.code === 11000) {
+      res.json({ message: 'Test user already exists' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`✓ Server on port ${PORT}`));
