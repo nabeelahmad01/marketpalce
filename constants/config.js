@@ -3,7 +3,7 @@
 export const GOOGLE_MAPS_CONFIG = {
   // Add your Google Maps API Key here
   // Get it from: https://console.cloud.google.com/google/maps-apis
-  API_KEY: 'YOUR_GOOGLE_MAPS_API_KEY_HERE',
+  API_KEY: '42ce295d465c1abd16bf7c4a887f09b6c2ebe48a',
   
   // Default map settings
   DEFAULT_REGION: {
