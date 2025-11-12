@@ -5,8 +5,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Define theme constants inline to avoid import issues
 const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
+  primary: '#8B5CF6',
+  primaryLight: '#A78BFA',
   white: '#FFFFFF',
   textPrimary: '#1F2937',
 };

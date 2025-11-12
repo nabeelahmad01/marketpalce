@@ -8,7 +8,7 @@ const getApiUrl = () => {
       return 'http://localhost:5000/api';
     } else {
       // For mobile devices/simulators - use your computer's IP
-      return 'http://192.168.0.93:5000/api';
+      return "http://192.168.0.47:5000/api";
     }
   } else {
     // Production mode - replace with your production API URL

@@ -10,8 +10,8 @@ import { API_BASE_URL } from '../constants/api';
 
 // Define theme constants inline to avoid import issues
 const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
+  primary: '#8B5CF6',
+  primaryLight: '#A78BFA',
   white: '#FFFFFF',
   background: '#F8FAFC',
   textPrimary: '#1F2937',
@@ -48,7 +48,12 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
     const newErrors = {};
     
     if (!phone.trim()) newErrors.phone = 'Phone number is required';
-    if (phone.length < 11) newErrors.phone = 'Phone number must be 11 digits';
+    
+    // Skip phone length validation for admin login
+    if (phone !== '00000000000' && phone.length < 11) {
+      newErrors.phone = 'Phone number must be 11 digits';
+    }
+    
     if (!password.trim()) newErrors.password = 'Password is required';
     
     setErrors(newErrors);
@@ -60,6 +65,29 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
 
     setLoading(true);
     try {
+      // Check for admin credentials first
+      if (phone === '00000000000' && password === 'admin123') {
+        const adminUser = {
+          id: 'admin_001',
+          name: 'Administrator',
+          phone: '00000000000',
+          type: 'admin',
+          email: 'admin@mechanichub.com'
+        };
+        
+        await AsyncStorage.setItem('token', 'admin-token-123');
+        await AsyncStorage.setItem('currentUser', JSON.stringify(adminUser));
+        
+        Alert.alert('Admin Login', 'Welcome Administrator!', [
+          { text: 'OK', onPress: () => {
+            if (typeof onLoginSuccess === 'function') {
+              onLoginSuccess(adminUser);
+            }
+          }}
+        ]);
+        return;
+      }
+
       console.log('Attempting login to:', `${API_BASE_URL}/auth/login`);
       
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -194,6 +222,21 @@ export default function LoginScreen({ navigation, onLoginSuccess }) {
               Don't have an account? <Text style={styles.registerLinkBold}>Sign Up</Text>
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.adminHint}>
+            <Text style={styles.adminHintText}>
+              Admin Access: Use "00000000000" as phone and "admin123" as password
+            </Text>
+            <TouchableOpacity 
+              style={styles.quickAdminButton}
+              onPress={() => {
+                setPhone('00000000000');
+                setPassword('admin123');
+              }}
+            >
+              <Text style={styles.quickAdminButtonText}>Quick Admin Login</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -321,6 +364,37 @@ const styles = StyleSheet.create({
   
   registerLinkBold: {
     color: COLORS.primary,
+    fontWeight: '600',
+  },
+
+  adminHint: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+
+  adminHintText: {
+    fontSize: 12,
+    color: '#92400E',
+    textAlign: 'center',
+    fontWeight: '500',
+    marginBottom: 10,
+  },
+
+  quickAdminButton: {
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignSelf: 'center',
+  },
+
+  quickAdminButtonText: {
+    fontSize: 12,
+    color: '#FFFFFF',
     fontWeight: '600',
   },
 });

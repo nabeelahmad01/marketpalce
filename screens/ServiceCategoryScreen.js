@@ -14,9 +14,9 @@ import { API_BASE_URL } from '../constants/api';
 
 // Define theme constants inline to avoid import issues
 const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  secondary: '#10B981',
+  primary: '#8B5CF6',
+  primaryLight: '#A78BFA',
+  secondary: '#EC4899',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',

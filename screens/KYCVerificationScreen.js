@@ -1,15 +1,43 @@
-// screens/KYCVerificationScreen.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Alert,
+  ActivityIndicator,
+  SafeAreaView,
+  Dimensions,
+  Modal,
+  StatusBar,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_BASE_URL } from '../constants/api';
+
+const COLORS = {
+  primary: '#8B5CF6',
+  secondary: '#EC4899',
+  background: '#F8FAFC',
+  white: '#FFFFFF',
+  text: '#1E293B',
+  textSecondary: '#64748B',
+  border: '#E2E8F0',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+};
+
+const { width } = Dimensions.get('window');
 
 export default function KYCVerificationScreen({ navigation }) {
-  const [cnicImage, setCnicImage] = useState(null);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [cnicFrontImage, setCnicFrontImage] = useState(null);
+  const [cnicBackImage, setCnicBackImage] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
-  const [kycStatus, setKycStatus] = useState('pending');
+  const [kycStatus, setKycStatus] = useState('not_started');
   const [loading, setLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
 
@@ -19,240 +47,496 @@ export default function KYCVerificationScreen({ navigation }) {
   }, []);
 
   const requestPermissions = async () => {
-    const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
-    const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    setHasPermission(cameraStatus === 'granted' && mediaStatus === 'granted');
+    try {
+      const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+      const { status: mediaStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      setHasPermission(cameraStatus === 'granted' && mediaStatus === 'granted');
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      setHasPermission(false);
+      Alert.alert('Error', 'Failed to request camera permissions');
+    }
   };
 
   const checkKYCStatus = async () => {
     try {
       const user = await AsyncStorage.getItem('currentUser');
-      const token = await AsyncStorage.getItem('token');
-      const userData = JSON.parse(user);
-
-      const response = await fetch(`${API_BASE_URL}/kyc/status`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'user-id': userData.id
-        }
-      });
-
-      const data = await response.json();
-      setKycStatus(data.kycStatus);
+      if (user) {
+        const userData = JSON.parse(user);
+        setKycStatus(userData.kycStatus || 'not_started');
+      }
     } catch (error) {
-      console.log(error);
+      console.log('Error checking KYC status:', error);
     }
   };
 
-  const pickCNICImage = async () => {
+  const pickImageFromGallery = async (step) => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [16, 10],
+        aspect: step === 3 ? [1, 1] : [16, 10],
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled) {
-        setCnicImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
+        const imageUri = result.assets[0].uri;
+        
+        switch (step) {
+          case 1:
+            setCnicFrontImage(imageUri);
+            break;
+          case 2:
+            setCnicBackImage(imageUri);
+            break;
+          case 3:
+            setSelfieImage(imageUri);
+            break;
+        }
+
+        if (step < 3) {
+          setTimeout(() => {
+            setCurrentStep(step + 1);
+          }, 500);
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to pick image');
     }
   };
 
-  const takeSelfie = async () => {
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (!result.canceled) {
-        setSelfieImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to capture selfie');
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!cnicImage || !selfieImage) {
-      Alert.alert('Error', 'Please upload both CNIC and selfie');
+  const submitKYC = async () => {
+    if (!cnicFrontImage || !cnicBackImage || !selfieImage) {
+      Alert.alert('Error', 'Please complete all steps');
       return;
     }
 
     setLoading(true);
     try {
       const user = await AsyncStorage.getItem('currentUser');
-      const token = await AsyncStorage.getItem('token');
       const userData = JSON.parse(user);
 
-      const response = await fetch(`${API_BASE_URL}/kyc/upload`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-          'user-id': userData.id
-        },
-        body: JSON.stringify({
-          cnicImage,
-          selfieImage
-        })
-      });
+      // Create KYC request object
+      const kycRequest = {
+        id: Date.now().toString(),
+        userId: userData.id || Date.now().toString(),
+        userName: userData.name || 'Unknown User',
+        userEmail: userData.email || 'user@example.com',
+        userPhone: userData.phone || '+92300000000',
+        userType: userData.type || 'customer',
+        status: 'pending',
+        submittedAt: new Date().toISOString(),
+        cnicFront: cnicFrontImage,
+        cnicBack: cnicBackImage,
+        selfie: selfieImage,
+        categories: userData.categories || ['General Service'],
+        location: userData.location || 'Pakistan',
+      };
 
-      if (response.ok) {
-        Alert.alert('Success', 'KYC submitted! Under review.');
-        setKycStatus('pending');
-      } else {
-        Alert.alert('Error', 'Failed to submit KYC');
-      }
+      // Save to pending KYC requests
+      const existingRequests = await AsyncStorage.getItem('pendingKYCRequests');
+      const requests = existingRequests ? JSON.parse(existingRequests) : [];
+      requests.push(kycRequest);
+      await AsyncStorage.setItem('pendingKYCRequests', JSON.stringify(requests));
+
+      // Update user status
+      const updatedUser = { ...userData, kycStatus: 'pending' };
+      await AsyncStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      
+      setKycStatus('pending');
+      Alert.alert(
+        'Success!', 
+        'Your KYC documents have been submitted successfully. Admin will review within 24-48 hours.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch (error) {
-      Alert.alert('Error', 'Submission failed');
+      Alert.alert('Error', 'Failed to submit KYC documents');
     } finally {
       setLoading(false);
     }
   };
 
+  const getCurrentStepImage = () => {
+    switch (currentStep) {
+      case 1: return cnicFrontImage;
+      case 2: return cnicBackImage;
+      case 3: return selfieImage;
+      default: return null;
+    }
+  };
+
+  const getStepTitle = () => {
+    switch (currentStep) {
+      case 1: return 'CNIC Front Side';
+      case 2: return 'CNIC Back Side';
+      case 3: return 'Live Selfie';
+      default: return 'Step';
+    }
+  };
+
+  const getStepSubtitle = () => {
+    switch (currentStep) {
+      case 1: return 'Take a clear photo of the front side of your CNIC';
+      case 2: return 'Take a clear photo of the back side of your CNIC';
+      case 3: return 'Take a clear selfie for identity verification';
+      default: return '';
+    }
+  };
+
   if (hasPermission === null) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Checking permissions...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  if (hasPermission === false) {
+  if (kycStatus === 'approved') {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Camera and media library permissions required</Text>
-        <TouchableOpacity style={styles.button} onPress={requestPermissions}>
-          <Text style={styles.buttonText}>Grant Permissions</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.statusContainer}>
+          <Ionicons name="checkmark-circle" size={80} color={COLORS.success} />
+          <Text style={styles.statusTitle}>Verification Complete!</Text>
+          <Text style={styles.statusText}>
+            Your account has been successfully verified.
+          </Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
+
+  if (kycStatus === 'pending') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.statusContainer}>
+          <Ionicons name="time-outline" size={80} color={COLORS.warning} />
+          <Text style={styles.statusTitle}>Under Review</Text>
+          <Text style={styles.statusText}>
+            Your documents are being reviewed. This usually takes 24-48 hours.
+          </Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const currentImage = getCurrentStepImage();
+  const allStepsCompleted = cnicFrontImage && cnicBackImage && selfieImage;
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>KYC Verification</Text>
-        <View style={[styles.statusBadge, kycStatus === 'approved' && styles.approved, kycStatus === 'rejected' && styles.rejected]}>
-          <Text style={styles.statusText}>
-            {kycStatus === 'pending' ? '⏳ Under Review' : kycStatus === 'approved' ? '✓ Approved' : '✗ Rejected'}
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
+          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>KYC Verification</Text>
+        <View style={styles.headerProgress}>
+          <Text style={styles.progressText}>
+            {(cnicFrontImage ? 1 : 0) + (cnicBackImage ? 1 : 0) + (selfieImage ? 1 : 0)}/3
           </Text>
         </View>
       </View>
 
+      {/* Content */}
       <View style={styles.content}>
-        {kycStatus === 'approved' ? (
-          <View style={styles.successCard}>
-            <Text style={styles.successIcon}>🎉</Text>
-            <Text style={styles.successTitle}>Verified!</Text>
-            <Text style={styles.successText}>Your account is verified. You can now accept jobs.</Text>
-          </View>
-        ) : (
+        {!allStepsCompleted ? (
           <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>1. Upload CNIC Photo</Text>
-              <Text style={styles.instruction}>Take a clear photo of your National ID card</Text>
-              
-              {cnicImage ? (
-                <View style={styles.imagePreview}>
-                  <Image source={{ uri: cnicImage }} style={styles.previewImage} />
-                  <TouchableOpacity style={styles.retakeBtn} onPress={pickCNICImage}>
-                    <Text style={styles.retakeText}>Change Photo</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <TouchableOpacity style={styles.uploadBtn} onPress={pickCNICImage}>
-                  <Text style={styles.uploadIcon}>📷</Text>
-                  <Text style={styles.uploadText}>Upload CNIC</Text>
-                </TouchableOpacity>
-              )}
+            <View style={styles.stepInfo}>
+              <Text style={styles.stepTitle}>{getStepTitle()}</Text>
+              <Text style={styles.stepSubtitle}>{getStepSubtitle()}</Text>
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>2. Take Live Selfie</Text>
-              <Text style={styles.instruction}>Take a clear selfie for verification</Text>
-              
-              {selfieImage ? (
-                <View style={styles.imagePreview}>
-                  <Image source={{ uri: selfieImage }} style={styles.previewImage} />
-                  <TouchableOpacity style={styles.retakeBtn} onPress={takeSelfie}>
-                    <Text style={styles.retakeText}>Retake</Text>
+            {currentImage ? (
+              <View style={styles.imagePreview}>
+                <Image source={{ uri: currentImage }} style={styles.previewImage} />
+                <View style={styles.imageActions}>
+                  <TouchableOpacity 
+                    style={styles.retakeButton} 
+                    onPress={() => pickImageFromGallery(currentStep)}
+                  >
+                    <Text style={styles.retakeButtonText}>Retake</Text>
                   </TouchableOpacity>
+                  {currentStep < 3 && (
+                    <TouchableOpacity 
+                      style={styles.nextButton} 
+                      onPress={() => setCurrentStep(currentStep + 1)}
+                    >
+                      <Text style={styles.nextButtonText}>Next Step</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              ) : (
-                <TouchableOpacity style={styles.uploadBtn} onPress={takeSelfie}>
-                  <Text style={styles.uploadIcon}>🤳</Text>
-                  <Text style={styles.uploadText}>Take Selfie</Text>
+              </View>
+            ) : (
+              <View style={styles.captureContainer}>
+                <TouchableOpacity 
+                  style={styles.captureButton} 
+                  onPress={() => pickImageFromGallery(currentStep)}
+                >
+                  <Ionicons name="camera" size={32} color={COLORS.white} />
+                  <Text style={styles.captureButtonText}>Choose Photo</Text>
                 </TouchableOpacity>
-              )}
-            </View>
-
-            {cnicImage && selfieImage && kycStatus !== 'pending' && (
-              <TouchableOpacity 
-                style={[styles.submitBtn, loading && styles.submitBtnDisabled]} 
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>Submit for Verification</Text>
-                )}
-              </TouchableOpacity>
-            )}
-
-            {kycStatus === 'pending' && (
-              <View style={styles.pendingCard}>
-                <Text style={styles.pendingIcon}>⏳</Text>
-                <Text style={styles.pendingTitle}>Under Review</Text>
-                <Text style={styles.pendingText}>
-                  Your documents are being verified. This usually takes 24-48 hours.
-                </Text>
               </View>
             )}
           </>
+        ) : (
+          <View style={styles.reviewContainer}>
+            <Text style={styles.reviewTitle}>Review Your Documents</Text>
+            
+            <View style={styles.reviewGrid}>
+              <View style={styles.reviewItem}>
+                <Text style={styles.reviewLabel}>CNIC Front</Text>
+                <Image source={{ uri: cnicFrontImage }} style={styles.reviewImage} />
+                <TouchableOpacity onPress={() => { setCurrentStep(1); setCnicFrontImage(null); }}>
+                  <Text style={styles.retakeLink}>Retake</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.reviewItem}>
+                <Text style={styles.reviewLabel}>CNIC Back</Text>
+                <Image source={{ uri: cnicBackImage }} style={styles.reviewImage} />
+                <TouchableOpacity onPress={() => { setCurrentStep(2); setCnicBackImage(null); }}>
+                  <Text style={styles.retakeLink}>Retake</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.reviewItem}>
+                <Text style={styles.reviewLabel}>Selfie</Text>
+                <Image source={{ uri: selfieImage }} style={styles.reviewImage} />
+                <TouchableOpacity onPress={() => { setCurrentStep(3); setSelfieImage(null); }}>
+                  <Text style={styles.retakeLink}>Retake</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.submitButton, loading && styles.submitButtonDisabled]} 
+              onPress={submitKYC}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color={COLORS.white} />
+                  <Text style={styles.submitButtonText}>Submit for Verification</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  header: { backgroundColor: '#007AFF', padding: 20, paddingTop: 40 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 10 },
-  statusBadge: { backgroundColor: '#FFB74D', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
-  approved: { backgroundColor: '#4CAF50' },
-  rejected: { backgroundColor: '#F44336' },
-  statusText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  content: { padding: 20 },
-  section: { marginBottom: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', marginBottom: 5, color: '#333' },
-  instruction: { fontSize: 13, color: '#666', marginBottom: 15 },
-  uploadBtn: { backgroundColor: '#fff', borderRadius: 12, padding: 30, alignItems: 'center', borderWidth: 2, borderColor: '#007AFF', borderStyle: 'dashed' },
-  uploadIcon: { fontSize: 50, marginBottom: 10 },
-  uploadText: { fontSize: 16, fontWeight: '600', color: '#007AFF' },
-  imagePreview: { alignItems: 'center' },
-  previewImage: { width: '100%', height: 200, borderRadius: 12, marginBottom: 10 },
-  retakeBtn: { backgroundColor: '#FF9800', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
-  retakeText: { color: '#fff', fontWeight: '600' },
-  submitBtn: { backgroundColor: '#4CAF50', padding: 18, borderRadius: 12, marginTop: 20 },
-  submitBtnDisabled: { backgroundColor: '#ccc' },
-  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
-  successCard: { backgroundColor: '#E8F5E9', padding: 30, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-  successIcon: { fontSize: 60, marginBottom: 10 },
-  successTitle: { fontSize: 24, fontWeight: 'bold', color: '#2E7D32', marginBottom: 10 },
-  successText: { fontSize: 14, color: '#558B2F', textAlign: 'center' },
-  pendingCard: { backgroundColor: '#FFF3E0', padding: 25, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-  pendingIcon: { fontSize: 50, marginBottom: 10 },
-  pendingTitle: { fontSize: 20, fontWeight: 'bold', color: '#E65100', marginBottom: 10 },
-  pendingText: { fontSize: 13, color: '#EF6C00', textAlign: 'center' },
-  errorText: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 20 }
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: COLORS.text,
+    marginTop: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  headerBackButton: {
+    padding: 5,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  headerProgress: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  progressText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.white,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  stepInfo: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 10,
+  },
+  stepSubtitle: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  captureContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 40,
+    paddingVertical: 20,
+    borderRadius: 50,
+    gap: 10,
+  },
+  captureButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  imagePreview: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: width - 40,
+    height: 240,
+    borderRadius: 12,
+    marginBottom: 20,
+  },
+  imageActions: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  retakeButton: {
+    backgroundColor: COLORS.warning,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retakeButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.white,
+  },
+  nextButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  nextButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.white,
+  },
+  reviewContainer: {
+    flex: 1,
+  },
+  reviewTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.text,
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  reviewGrid: {
+    marginBottom: 40,
+  },
+  reviewItem: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  reviewLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.text,
+    marginBottom: 10,
+  },
+  reviewImage: {
+    width: width - 40,
+    height: 120,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  retakeLink: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  submitButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.success,
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  submitButtonDisabled: {
+    backgroundColor: COLORS.textSecondary,
+  },
+  submitButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
+  statusContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  statusTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 20,
+    marginBottom: 15,
+  },
+  statusText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 40,
+  },
+  backButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.white,
+  },
 });

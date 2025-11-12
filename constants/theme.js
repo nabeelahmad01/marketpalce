@@ -1,18 +1,18 @@
-// Final Theme Configuration - Guaranteed to work
+// Final Theme Configuration - Modern Purple/Pink Theme
 const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  primaryDark: '#1D4ED8',
-  secondary: '#10B981',
-  secondaryLight: '#34D399',
-  secondaryDark: '#059669',
+  primary: '#8B5CF6',
+  primaryLight: '#A78BFA',
+  primaryDark: '#7C3AED',
+  secondary: '#EC4899',
+  secondaryLight: '#F472B6',
+  secondaryDark: '#DB2777',
   accent: '#F59E0B',
   accentLight: '#FBBF24',
   accentDark: '#D97706',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
-  info: '#3B82F6',
+  info: '#A78BFA',
   white: '#FFFFFF',
   black: '#000000',
   gray50: '#F9FAFB',
@@ -106,8 +106,8 @@ const SHADOWS = {
 };
 
 const GRADIENTS = {
-  primary: ['#2563EB', '#3B82F6'],
-  secondary: ['#10B981', '#34D399'],
+  primary: ['#8B5CF6', '#A78BFA'],
+  secondary: ['#EC4899', '#F472B6'],
   accent: ['#F59E0B', '#FBBF24'],
   success: ['#10B981', '#34D399'],
   warning: ['#F59E0B', '#FBBF24'],

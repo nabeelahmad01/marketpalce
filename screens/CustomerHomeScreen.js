@@ -2,17 +2,29 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  Alert,
+  SafeAreaView,
+  StatusBar,
+  ScrollView,
+  Dimensions,
+} from 'react-native';
+import { useAuth } from '../App';
 import Header from '../components/Header';
 import LiveLocationTracker from '../components/LiveLocationTracker';
 // Define theme constants inline to avoid import issues
 const COLORS = {
-  primary: '#2563EB',
-  secondary: '#10B981',
+  primary: '#8B5CF6',
+  secondary: '#EC4899',
   accent: '#F59E0B',
   warning: '#F59E0B',
-  info: '#3B82F6',
+  info: '#A78BFA',
   success: '#10B981',
   white: '#FFFFFF',
   gray400: '#9CA3AF',
@@ -74,6 +86,7 @@ const CATEGORIES = [
 ];
 
 export default function CustomerHomeScreen({ navigation }) {
+  const { handleLogout: authLogout } = useAuth();
   const [currentUser, setCurrentUser] = useState(null);
   const [isLocationTracking, setIsLocationTracking] = useState(false);
 
@@ -106,15 +119,9 @@ export default function CustomerHomeScreen({ navigation }) {
     );
   };
 
-  const handleLogout = async () => {
-    try {
-      await AsyncStorage.multiRemove(['token', 'currentUser']);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    } catch (error) {
-      console.error('Error logging out:', error);
+  const handleLogout = () => {
+    if (authLogout) {
+      authLogout();
     }
   };
 

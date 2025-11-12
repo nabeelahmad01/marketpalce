@@ -6,12 +6,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Header from '../components/Header';
 import { API_BASE_URL } from '../constants/api';
+import { useAuth } from '../App';
 
 // Define theme constants inline to avoid import issues
 const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  secondary: '#10B981',
+  primary: '#8B5CF6',
+  primaryLight: '#A78BFA',
+  secondary: '#EC4899',
   success: '#10B981',
   warning: '#F59E0B',
   error: '#EF4444',
@@ -45,8 +46,10 @@ const SIZES = {
 };
 
 export default function MechanicHomeScreen({ navigation }) {
+  const { handleLogout: authLogout } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     loadRequests();
@@ -123,15 +126,9 @@ export default function MechanicHomeScreen({ navigation }) {
         {
           text: 'Logout',
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await AsyncStorage.multiRemove(['token', 'currentUser']);
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
-            } catch (error) {
-              console.error('Logout error:', error);
+          onPress: () => {
+            if (authLogout) {
+              authLogout();
             }
           },
         },

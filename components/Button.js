@@ -4,10 +4,10 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-nat
 
 // Import theme constants - define inline to avoid import issues
 const COLORS = {
-  primary: '#2563EB',
-  primaryLight: '#3B82F6',
-  primaryDark: '#1D4ED8',
-  secondary: '#10B981',
+  primary: '#8B5CF6',
+  primaryLight: '#A78BFA',
+  primaryDark: '#7C3AED',
+  secondary: '#EC4899',
   white: '#FFFFFF',
   gray300: '#D1D5DB',
   gray400: '#9CA3AF',
@@ -176,15 +176,15 @@ const styles = StyleSheet.create({
   
   // Color variants
   primary: {
-    backgroundColor: '#2563EB', // COLORS.primary
+    backgroundColor: '#8B5CF6', // COLORS.primary
   },
   secondary: {
-    backgroundColor: '#10B981', // COLORS.secondary
+    backgroundColor: '#EC4899', // COLORS.secondary
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#2563EB', // COLORS.primary
+    borderColor: '#8B5CF6', // COLORS.primary
   },
   ghost: {
     backgroundColor: 'transparent',
@@ -215,10 +215,10 @@ const styles = StyleSheet.create({
     color: '#FFFFFF', // COLORS.white
   },
   textOutline: {
-    color: '#2563EB', // COLORS.primary
+    color: '#8B5CF6', // COLORS.primary
   },
   textGhost: {
-    color: '#2563EB', // COLORS.primary
+    color: '#8B5CF6', // COLORS.primary
   },
   textDanger: {
     color: '#FFFFFF', // COLORS.white
